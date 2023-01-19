@@ -1,0 +1,10 @@
+# repo-man config
+
+# CSV list of paths to monitor
+monitors="/src/http/repo/"
+# CSV list of events to act on
+events="create,moved_to,delete,moved_from"
+# package file extension
+pkg_ext="pkg.tar.zst"
+# package database extension
+db_ext="db.tar.gz"

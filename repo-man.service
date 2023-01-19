@@ -1,0 +1,10 @@
+[Unit]
+Description=Penguin repo manager
+
+[Service]
+ExecStart=/usr/bin/repo-man
+Type=simple
+Restart=always
+
+[Install]
+WantedBy=default.target

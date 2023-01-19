@@ -1,0 +1,79 @@
+#!/usr/bin/env zsh
+
+[[ -f /etc/repo-man.conf ]] \
+  && source /etc/repo-man.conf
+
+declare monitors=${monitors:-"/srv/http/repo/"}
+declare events=${events:-"create,moved_to,delete,moved_from"}
+declare db_ext=${db_ext:-"db.tar"}
+declare pkg_ext=${pkg_ext:-"pkg.tar.zst"}
+
+# build args from csv
+function build_args () {
+  local flag=$1
+  local list=$2
+  local argstr
+
+  for arg in ${(s[,])list}
+  do
+    argstr+=" -${flag} $arg"
+  done
+
+  echo "$argstr"
+}
+
+# get package name from file name
+function get_pkg_name () {
+  local file=$1
+  local -a split=(${(@s:-:)file})
+  local -a trim=(${split[@]::$#split-3})
+  local pkg=${(j:-:)trim}
+
+  echo "$pkg"
+}
+
+# add package
+function add_pkg () {
+  local dir=$1
+  local pkg=$2
+  local -a p_arr=(${(s:/:)dir})
+  local db=${p_arr[-2]}.${db_ext}
+
+  cd $dir || return 2
+  repo-add --quiet --nocolor \
+    --new --remove \
+    $db $pkg \
+    || return 3
+}
+
+# remove package
+function remove_pkg () {
+  local dir=$1
+  local pkg=$(get_pkg_name $pkg)
+  local -a p_arr=(${(s:/:)dir})
+  local db=${p_arr[-2]}.${db_ext}
+
+  cd $dir || return 2
+  repo-remove --quiet --nocolor \
+    $db $pkg \
+    || return 3
+}
+
+function main () {
+  inotifywait --recursive --quiet \
+    $(build_args m $monitors) \
+    $(build_args e $events) \
+    | while read dir event pkg
+    do
+      if [[ ${pkg} =~ .*${pkg_ext}$ ]]
+      then
+        case $event in 
+          CREATE | MOVED_TO ) add_pkg $dir $pkg ;;
+          DELETE | MOVED_FROM ) remove_pkg $dir $pkg ;;
+          * | ? ) echo "unexpected event: $event" ;;
+        esac
+      fi
+    done
+}
+
+main || exit 1
